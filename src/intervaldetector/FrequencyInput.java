@@ -9,6 +9,7 @@ import be.tarsos.dsp.io.TarsosDSPAudioFloatConverter;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.pitch.DynamicWavelet;
 import java.io.IOException;
+import java.util.ArrayList;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
@@ -77,7 +78,8 @@ public class FrequencyInput {
 
     }
 
-    public double detectFrequency(int samples, boolean debug) throws IOException {
+    public ArrayList<Double> detectFrequencies(int minSamples, boolean debug) throws IOException {
+        ArrayList<Double> freqs = new ArrayList<>();
         if (!isOpen) {
             throw new IOException();
         }
@@ -91,7 +93,7 @@ public class FrequencyInput {
         boolean ready = false;
 
         while (true) {
-            line.read(data, 10, data.length - 10);
+            line.read(data, 0, data.length);
             tdsp.toFloatArray(data, dataFloat);
             double tmpFrq = dw.getPitch(dataFloat).getPitch();
 //            System.out.println("Base\t| Count\t| Total\t| Freq");
@@ -100,26 +102,29 @@ public class FrequencyInput {
 
             if (tmpFrq == -1.0) {
                 spaceCounter++;
-                if (spaceCounter > 7 && ready) {
-                    return total / samples;
+                if (spaceCounter > 10 && ready) {
+                    return freqs;
                 }
             } else if (tmpFrq < baseline * 1.03 && tmpFrq > baseline * 0.97) {
                 newFrqCounter = 0;
                 spaceCounter = 0;
-                if (counter <= samples) {
+                freqs.add(tmpFrq);
+                if (counter <= minSamples) {
                     total += tmpFrq;
                     baseline = total / counter;
                     //System.out.println(baseline);
                     counter++;
 
                 } else {
+                    freqs.add(tmpFrq);
                     ready = true;
                 }
             } else {
                 newFrqCounter++;
                 if (ready) {
-                    return total / samples;
+                    return freqs;
                 }
+                freqs.clear();
                 baseline = tmpFrq;
                 total = 0;
                 counter = 1;
@@ -131,7 +136,7 @@ public class FrequencyInput {
             }
         }
 
-        //   return total / samples;
+        //   return total / minSamples;
     }
 
 }

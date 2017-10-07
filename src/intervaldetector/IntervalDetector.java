@@ -7,6 +7,7 @@ package intervaldetector;
 
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
@@ -47,17 +48,12 @@ public class IntervalDetector {
         }
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    boolean debug = false;
+    boolean manualMode = false;
+    Scanner scan = new Scanner(System.in);
 
-        new IntervalDetector().detectInterval();
-
-    }
-
-    private void detectInterval() throws IOException, InterruptedException {
-        boolean debug = false;
-        boolean manualMode = false;
+    public void detectInterval() throws IOException, InterruptedException {
         System.out.println("Welcome to Interval Detector!");
-        Scanner scan = new Scanner(System.in);
         FrequencyInput fg = new FrequencyInput();
         DecimalFormat df = new DecimalFormat("0.000");
         char input = 'a';
@@ -67,38 +63,47 @@ public class IntervalDetector {
         while (input != 'q') {
 
             if (input == 'm') {
-                while (input != 'c') {
-                    System.out.println("~~Menu~~");
-                    System.out.println("Debug mode: " + debug + " (Enter 'd' to toggle)");
-                    System.out.println("Enter manually: " + manualMode + " (Enter 'e' to toggle)");
-                    System.out.println("Enter 'c' to close menu...");
-                    input = scan.next().toLowerCase().charAt(0);
-                    if (input == 'd') {
-                        debug = !debug;
-                    } else if (input == 'e') {
-                        manualMode = !manualMode;
-                    }
-                }
+                menuLoop();
             }
 
             fg.start();
-            double freq1, freq2;
+            double freq1 = 0, freq2 = 0;
+            ArrayList<Double> freqs1 = null, freqs2 = null;
 
             System.out.println("Please sing first pitch:");
             if (!manualMode) {
-                freq1 = fg.detectFrequency(3, debug);
+                freqs1 = fg.detectFrequencies(3, debug);
+                System.out.println("Found first pitch.");
             } else {
                 freq1 = scan.nextDouble();
+                System.out.println("You entered: " + df.format(freq1));
             }
-            System.out.println("You sang: " + df.format(freq1));
 
             System.out.println("Please sing second pitch:");
             if (!manualMode) {
-                freq2 = fg.detectFrequency(3, debug);
+                freqs2 = fg.detectFrequencies(3, debug);
+                System.out.println("Found second pitch.");
             } else {
                 freq2 = scan.nextDouble();
+                System.out.println("You entered: " + df.format(freq2));
             }
-            System.out.println("You sang: " + df.format(freq2));
+
+            if (!manualMode) {
+                removeOutliers(freqs1);
+                removeOutliers(freqs2);
+
+                double total = 0;
+                for (double d : freqs1) {
+                    total += d;
+                }
+                freq1 = total / freqs1.size();
+                total = 0;
+                for (double d : freqs2) {
+                    total += d;
+                }
+                freq2 = total / freqs2.size();
+
+            }
 
             System.out.println();
             fg.stop();
@@ -123,6 +128,50 @@ public class IntervalDetector {
         }
 
         System.out.println("Thank you! Goodbye.");
+    }
+
+    private void menuLoop() {
+        char input = 'm';
+        while (input != 'c') {
+            System.out.println("~~Menu~~");
+            System.out.println("Debug mode: " + debug + " (Enter 'd' to toggle)");
+            System.out.println("Enter manually: " + manualMode + " (Enter 'e' to toggle)");
+            System.out.println("Enter 'c' to close menu...");
+            input = scan.next().toLowerCase().charAt(0);
+            if (input == 'd') {
+                debug = !debug;
+            } else if (input == 'e') {
+                manualMode = !manualMode;
+            }
+        }
+    }
+
+    private ArrayList<Double> removeOutliers(ArrayList<Double> freqs) {
+        double stdDev = 0;
+        double total = 0;
+        double avg = 0;
+        for (double i : freqs) {
+            total += i;
+        }
+        avg = total / freqs.size();
+        if (debug) {
+            System.out.print("Average: " + avg);
+        }
+        for (double i : freqs) {
+            total = Math.pow(i - avg, 2);
+        }
+        stdDev = total / freqs.size();
+        stdDev = Math.sqrt(stdDev);
+        if (debug) {
+            System.out.print("Standard Deviation: " + stdDev);
+        }
+        for (int i = 0; i < freqs.size(); i++) {
+            if (freqs.get(i) > avg + stdDev || freqs.get(i) < avg - stdDev) {
+                freqs.remove(i);
+            }
+        }
+
+        return freqs;
     }
 
     public Interval findClosestInterval(double inputRatio) {
