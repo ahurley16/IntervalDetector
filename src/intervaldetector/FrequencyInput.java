@@ -97,7 +97,6 @@ public class FrequencyInput {
 //                System.out.printf("%4.2f\t| %4d\t| %4.2f\n", baseline, counter, tmpFrq);
 //                System.out.println("+-----------------------+");
 //            }
-
             //If no frequency detected then count up a space. If a frequency is
             //already detected and there are 7 spaces in a row with no pitch
             //in beteween then return.
