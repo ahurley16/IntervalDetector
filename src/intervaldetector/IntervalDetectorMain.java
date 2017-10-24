@@ -5,23 +5,15 @@
  */
 package intervaldetector;
 
-import java.io.IOException;
-import java.text.DecimalFormat;
-import java.util.Scanner;
-
 /**
  *
  * @author Drew
  */
 public class IntervalDetectorMain {
 
+    public static void main(String[] args) {
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-
-        new UserInterface().start();
+        new UserInterface().menuLoop();
 
     }
-
-   
-
 }

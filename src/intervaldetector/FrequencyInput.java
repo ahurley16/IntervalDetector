@@ -8,7 +8,6 @@ package intervaldetector;
 import be.tarsos.dsp.io.TarsosDSPAudioFloatConverter;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.pitch.DynamicWavelet;
-import java.io.IOException;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
@@ -21,13 +20,14 @@ import javax.sound.sampled.TargetDataLine;
  */
 public class FrequencyInput {
 
-    public static final int SAMPLE_RATE = 32000;
-    public static final int BITS_PER_SAMPLE = 8;
-    public static final int CHANNELS = 1;
-    public static final boolean SIGNED = true;
-    public static final boolean BIG_ENDIAN = true;
+    public final int SAMPLE_RATE = 32000;
+    public final int BITS_PER_SAMPLE = 8;
+    public final int CHANNELS = 1;
+    public final boolean SIGNED = true;
+    public final boolean BIG_ENDIAN = true;
 
-    public static final int DATA_READ = SAMPLE_RATE / BITS_PER_SAMPLE;
+    public final int FRACTION = 20;
+    public final int DATA_READ = SAMPLE_RATE / FRACTION;
 
     TargetDataLine line;
     AudioFormat format;
@@ -37,49 +37,34 @@ public class FrequencyInput {
     byte[] data;
     float[] dataFloat;
 
-    boolean isOpen;
-
     public FrequencyInput() {
         line = null;
         format = new AudioFormat(SAMPLE_RATE, BITS_PER_SAMPLE, CHANNELS, SIGNED, BIG_ENDIAN);
         info = new DataLine.Info(TargetDataLine.class, format);
 
-        if (!AudioSystem.isLineSupported(info)) {
-            System.err.println("Line not supported");
-
-        }
         // Obtain and open the line.
         try {
             line = (TargetDataLine) AudioSystem.getLine(info);
             line.open(format);
-        } catch (LineUnavailableException ex) {
-            System.err.println("Line not available");
+        } catch (LineUnavailableException e) {
+            System.err.println("Error getting mic input: " + e.getMessage());
         }
-
         data = new byte[DATA_READ];
         dataFloat = new float[data.length];
         dw = new DynamicWavelet(SAMPLE_RATE, line.getBufferSize());
         tdsp = TarsosDSPAudioFloatConverter.getConverter(new TarsosDSPAudioFormat(SAMPLE_RATE, BITS_PER_SAMPLE, CHANNELS, SIGNED, BIG_ENDIAN));
-        isOpen = false;
     }
 
     public void start() {
         line.start();
-
-        isOpen = true;
     }
 
     public void stop() {
         line.stop();
-
-        isOpen = false;
-
     }
 
-    public double detectFrequency(int samples, boolean debug) throws IOException {
-        if (!isOpen) {
-            throw new IOException("Line not open");
-        }
+    public double detectFrequency(int samples, boolean debug) {
+        line.start();
         double baseline = 0;
         double total = 0;
         int counter = 0;
@@ -92,11 +77,6 @@ public class FrequencyInput {
             tdsp.toFloatArray(data, dataFloat);
             double tmpFrq = dw.getPitch(dataFloat).getPitch();
 
-//            if (debug) {
-//                System.out.println("Average\t| Count\t| Freq");
-//                System.out.printf("%4.2f\t| %4d\t| %4.2f\n", baseline, counter, tmpFrq);
-//                System.out.println("+-----------------------+");
-//            }
             //If no frequency detected then count up a space. If a frequency is
             //already detected and there are 7 spaces in a row with no pitch
             //in beteween then return.
@@ -133,6 +113,8 @@ public class FrequencyInput {
                     counter = 0;
                 }
             }
+
+            //Debugger
             if (debug) {
                 System.out.println("Average\t| Count\t| Freq");
                 System.out.printf("%4.2f\t| %4d\t| %4.1f\t| %d%n", baseline, counter, tmpFrq, newFrqCounter);
