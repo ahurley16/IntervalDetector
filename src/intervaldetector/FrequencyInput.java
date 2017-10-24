@@ -49,7 +49,7 @@ public class FrequencyInput {
             System.err.println("Line not supported");
 
         }
-// Obtain and open the line.
+        // Obtain and open the line.
         try {
             line = (TargetDataLine) AudioSystem.getLine(info);
             line.open(format);
@@ -79,13 +79,13 @@ public class FrequencyInput {
 
     public double detectFrequency(int samples, boolean debug) throws IOException {
         if (!isOpen) {
-            throw new IOException();
+            throw new IOException("Line not open");
         }
         line.read(data, 0, data.length);
         tdsp.toFloatArray(data, dataFloat);
-        double baseline = dw.getPitch(dataFloat).getPitch();
+        double baseline = 0;
         double total = 0;
-        int counter = 1;
+        int counter = 0;
         int spaceCounter = 0;
         int newFrqCounter = 0;
         boolean ready = false;
@@ -94,35 +94,46 @@ public class FrequencyInput {
             line.read(data, 10, data.length - 10);
             tdsp.toFloatArray(data, dataFloat);
             double tmpFrq = dw.getPitch(dataFloat).getPitch();
-//            System.out.println("Base\t| Count\t| Total\t| Freq");
-//            System.out.printf("%4.2f\t| %4d\t| %4.1f\t| %4.2f\n", baseline, counter, total, tmpFrq);
-//            System.out.println("+------------------------------+");
+            if (debug) {
+                System.out.println("Average\t| Count\t| Freq");
+                System.out.printf("%4.2f\t| %4d\t| %4.2f\n", baseline, counter, tmpFrq);
+                System.out.println("+-----------------------+");
+            }
 
+            //If no frequency detected then count up a space. If a frequency is
+            //already detected and there are 7 spaces in a row with no pitch
+            //in beteween then return.
             if (tmpFrq == -1.0) {
                 spaceCounter++;
                 if (spaceCounter > 7 && ready) {
                     return total / samples;
                 }
+                //If the pitch is within 3% of the current baseline, reset the space
+                //counter. If we don't have enough samples, then add the current sample
+                //to the running average. Once enough samples has been reached this
+                //method doesn't do anything but reset space counter and set ready.
             } else if (tmpFrq < baseline * 1.03 && tmpFrq > baseline * 0.97) {
                 newFrqCounter = 0;
                 spaceCounter = 0;
                 if (counter <= samples) {
                     total += tmpFrq;
-                    baseline = total / counter;
-                    //System.out.println(baseline);
                     counter++;
+                    baseline = total / counter;
 
                 } else {
                     ready = true;
                 }
+                //If the pitch was detected but it wasn't within the 3% margin then 
+                //return if it's ready. Otherwise if it hasn't had enough samples,
+                //reset the baseline and counter because it will start to find a new pitch.
             } else {
                 newFrqCounter++;
-                if (ready) {
+                if (newFrqCounter > 1 && ready) {
                     return total / samples;
                 }
                 baseline = tmpFrq;
                 total = 0;
-                counter = 1;
+                counter = 0;
             }
             if (debug) {
                 System.out.println("Average\t| Count\t| Freq");
