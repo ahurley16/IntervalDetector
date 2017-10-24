@@ -27,8 +27,7 @@ public class FrequencyInput {
     public static final boolean SIGNED = true;
     public static final boolean BIG_ENDIAN = true;
 
-    public static final int HERTZ = 20;
-    public static final int DATA_READ = SAMPLE_RATE / HERTZ;
+    public static final int DATA_READ = SAMPLE_RATE / BITS_PER_SAMPLE;
 
     TargetDataLine line;
     AudioFormat format;
@@ -81,8 +80,6 @@ public class FrequencyInput {
         if (!isOpen) {
             throw new IOException("Line not open");
         }
-        line.read(data, 0, data.length);
-        tdsp.toFloatArray(data, dataFloat);
         double baseline = 0;
         double total = 0;
         int counter = 0;
@@ -91,14 +88,15 @@ public class FrequencyInput {
         boolean ready = false;
 
         while (true) {
-            line.read(data, 10, data.length - 10);
+            line.read(data, 0, data.length);
             tdsp.toFloatArray(data, dataFloat);
             double tmpFrq = dw.getPitch(dataFloat).getPitch();
-            if (debug) {
-                System.out.println("Average\t| Count\t| Freq");
-                System.out.printf("%4.2f\t| %4d\t| %4.2f\n", baseline, counter, tmpFrq);
-                System.out.println("+-----------------------+");
-            }
+
+//            if (debug) {
+//                System.out.println("Average\t| Count\t| Freq");
+//                System.out.printf("%4.2f\t| %4d\t| %4.2f\n", baseline, counter, tmpFrq);
+//                System.out.println("+-----------------------+");
+//            }
 
             //If no frequency detected then count up a space. If a frequency is
             //already detected and there are 7 spaces in a row with no pitch
@@ -115,7 +113,7 @@ public class FrequencyInput {
             } else if (tmpFrq < baseline * 1.03 && tmpFrq > baseline * 0.97) {
                 newFrqCounter = 0;
                 spaceCounter = 0;
-                if (counter <= samples) {
+                if (counter < samples) {
                     total += tmpFrq;
                     counter++;
                     baseline = total / counter;
@@ -130,19 +128,18 @@ public class FrequencyInput {
                 newFrqCounter++;
                 if (newFrqCounter > 1 && ready) {
                     return total / samples;
+                } else if (!ready) {
+                    baseline = tmpFrq;
+                    total = 0;
+                    counter = 0;
                 }
-                baseline = tmpFrq;
-                total = 0;
-                counter = 0;
             }
             if (debug) {
                 System.out.println("Average\t| Count\t| Freq");
-                System.out.printf("%4.2f\t| %4d\t| %4.2f\n", baseline, counter, tmpFrq);
+                System.out.printf("%4.2f\t| %4d\t| %4.1f\t| %d%n", baseline, counter, tmpFrq, newFrqCounter);
                 System.out.println("+-----------------------+");
             }
         }
-
-        //   return total / samples;
     }
 
 }
